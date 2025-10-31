@@ -6,7 +6,7 @@ MIGRATION_DIR = migration
 
 MIGRATE = migrate -path $(MIGRATION_DIR) -database $(DB_URL)
 
-NAME ?= create_transactions_table
+NAME ?= create_limit_table
 
 # Steps to rollback (default: 1); override with N=3
 N ?= 1

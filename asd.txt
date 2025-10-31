@@ -1,81 +1,41 @@
-account.go:
-"package domain
+// ddd стурктура, прочитать
 
-import "time"
 
-type Account struct {
-	ID        int       `json:"id" db:"id"`
-	UserID    int       `json:"user_id" db:"user_id"`
-	Currency  string    `json:"currency,omitempty" db:"currency"`
-	Balance   float64   `json:"balance" db:"balance"`
-	Blocked   bool      `json:"blocked,omitempty" db:"blocked"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time `json:"updated_at,omitempty" db:"updated_at"`
-} "
-card.go:
-"package domain
+// в domain не должен быть прсистввовать теги, сделать маппинг в каждом слое где они будут использовать
+// json можно оставить а вот db надо урать из domain обязателно прочитать про это. Обязателньо это сделай
 
-import "time"
 
-type Card struct {
-	ID             int       `json:"id" db:"id"`
-	AccountID      int       `json:"account_id" db:"account_id"`
-	CardNumber     string    `json:"card_number" db:"card_number"`
-	CardHolderName string    `json:"card_holder_name" db:"card_holder_name"`
-	ExpiryDate     time.Time `json:"expiry_date" db:"expiry_date"`
-	CVV            string    `json:"cvv" db:"cvv"`
-	CreatedAt      time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at,omitempty" db:"updated_at"`
-} "
-transaction.go:
-"package domain
+📚 Отличный вопрос! Это важный принцип Clean Architecture!
+В Domain слое действительно НЕ должно быть внешних зависимостей. Давайте разберем почему:
 
-import "time"
+🎯 Принципы Clean Architecture:
+Domain (внутренний слой) должен быть:
 
-type TransactionType string
+Независимым от внешних технологий
+Чистым от библиотек и фреймворков
+Переносимым между проектами
+❌ Что НЕ должно быть в Domain:
+✅ Как должно быть:
+Read user.go, lines 10 to 20
 
-const (
-	Deposit    TransactionType = "deposit"
-	Withdrawal TransactionType = "withdrawal"
-	Transfer   TransactionType = "transfer"
-)
+Вы правы! У вас есть комментарий об этом. Давайте исправим:
 
-type Transaction struct {
-	ID        int             `json:"id" db:"id"`
-	AccountID int             `json:"account_id" db:"account_id"`
-	Amount    float64         `json:"amount,omitempty" db:"amount"`
-	Currency  string          `json:"currency" db:"currency"`
-	Blocked   bool            `json:"blocked" db:"blocked"`
-	Type      TransactionType `json:"type" db:"type"`
-	CreatedAt time.Time       `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time       `json:"updated_at,omitempty" db:"updated_at"`
-} "
-user.go:"
-package domain
+🔧 Правильная структура Domain:
+user.go+9-8
+📊 Где размещать теги:
+1. Controller слой (JSON теги):
+2. Repository слой (DB теги):
+💡 Преимущества такого подхода:
+Независимость: Domain не зависит от JSON/DB библиотек
+Тестируемость: Легко тестировать бизнес-логику
+Переносимость: Можно поменять БД/API без изменения Domain
+Четкие границы: Каждый слой отвечает за свои задачи
+🚀 Хотите исправить остальные domain структуры?
+Можем почистить и другие файлы:
 
-// Is not used right now
-type Role string
+account.go
+transaction.go
+card.go
+и т.д.
+Правильная архитектура окупается в долгосрочной перспективе! 🏗️
 
-// Is not used right now
-const (
-	RoleUser  Role = "user"
-	RoleAdmin Role = "admin"
-)
-
-type User struct {
-	ID        int64  `json:"id" db:"id"`
-	FullName  string `json:"full_name,omitempty" db:"full_name"`
-	Phone     string `json:"phone" db:"phone"`
-	Email     string `json:"email" db:"email"`
-	Password  string `json:"-" db:"password"`
-	Role      Role   `json:"role" db:"role"`
-	CreatedAt string `json:"created_at" db:"created_at"`
-	UpdatedAt string `json:"updated_at,omitempty" db:"updated_at"`
-}
-
-// Is not used right now
-func (u *User) IsAdmin() bool {
-	return u.Role == RoleAdmin
-} "
-вот все мои структуры. user создает сразу при регистрации. 
-вот мой код прошу исправить и улучшить:

@@ -15,4 +15,6 @@ func AppRun() {
 	defer config.CloseDB()
 
 	controller.SetupRoutes()
+
+	//init cron(interface service)
 }

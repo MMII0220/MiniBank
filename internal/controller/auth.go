@@ -16,7 +16,15 @@ func registerHandler(c *gin.Context) {
 		return
 	}
 
-	user, err := service.Register(req, domain.RoleUser) // обычный пользователь
+	// Определяем роль: если указана в запросе, используем её, иначе - user по умолчанию
+	var role domain.Role
+	if req.Role != "" && (req.Role == "admin" || req.Role == "user") {
+		role = domain.Role(req.Role)
+	} else {
+		role = domain.RoleUser // по умолчанию
+	}
+
+	user, err := service.Register(req, role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

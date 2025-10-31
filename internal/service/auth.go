@@ -38,7 +38,7 @@ func Register(req domain.ReqRegister, role domain.Role) (domain.User, error) {
 		account := domain.Account{
 			UserID:   user.ID,
 			Currency: currency,
-			Balance:  0,
+			Balance:  "0",
 			Blocked:  false,
 		}
 
@@ -67,6 +67,13 @@ func Register(req domain.ReqRegister, role domain.Role) (domain.User, error) {
 		// if err != nil {
 		// 	return user, err
 		// }
+	}
+
+	// var reqLimit domain.Limit
+	// Создаем стандартный лимит для нового пользователя
+	err = repository.CreateDailyLimitForUser(user.ID, 1000.0) // 1000 TJS дневной лимит
+	if err != nil {
+		return user, err
 	}
 
 	return user, nil

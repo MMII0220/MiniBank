@@ -1,26 +1,27 @@
 package domain
 
-// Is not used right now
 type Role string
 
-// Is not used right now
 const (
 	RoleUser  Role = "user"
 	RoleAdmin Role = "admin"
 )
 
+// в domain не должен быть прсистввовать теги, сделать маппинг в каждом слое где они будут использовать
+// json можно оставить а вот db надо урать из domain обязателно прочитать про это. Обязателньо это сделай
+
+// Чистая доменная модель без внешних зависимостей
 type User struct {
-	ID        int    `json:"id" db:"id"`
-	FullName  string `json:"full_name,omitempty" db:"full_name"`
-	Phone     string `json:"phone" db:"phone"`
-	Email     string `json:"email" db:"email"`
-	Password  string `json:"-" db:"password"`
-	Role      Role   `json:"role" db:"role"`
-	CreatedAt string `json:"created_at" db:"created_at"`
-	UpdatedAt string `json:"updated_at,omitempty" db:"updated_at"`
+	ID        int
+	FullName  string
+	Phone     string
+	Email     string
+	Password  string
+	Role      Role
+	CreatedAt string
+	UpdatedAt string
 }
 
-// Is not used right now
 func (u *User) IsAdmin() bool {
 	return u.Role == RoleAdmin
 }

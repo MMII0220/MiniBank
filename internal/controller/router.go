@@ -17,11 +17,12 @@ func SetupRoutes() {
 		auth.POST("/login", loginHandler)
 	}
 
-	// admin := r.Group("/admin")
-	// admin.Use(AuthMiddleware(domain.RoleAdmin))
-	// {
-	// 	admin.POST("/block/:id", blockAccount)
-	// }
+	admin := r.Group("/admin")
+	admin.Use(AuthMiddleware(domain.RoleAdmin))
+	{
+		admin.POST("/blockUnblock/:id", blockUnblockAccountHandler)
+		admin.GET("/getAuditLogs", getAuditLogsHandler)
+	}
 
 	api := r.Group("/api")
 	api.Use(AuthMiddleware(domain.RoleUser)) // или можно создать специальную роль "any"
@@ -29,7 +30,7 @@ func SetupRoutes() {
 		api.POST("/deposit", depositHandler)
 		api.POST("/withdraw", withdrawHandler)
 		api.POST("/transfer", transferHandler)
-		api.GET("/history/:id", historyLogs)
+		api.GET("/history", historyLogs)
 	}
 
 	r.Run(":" + os.Getenv("ROUTER_RUN")) // listen and serve on

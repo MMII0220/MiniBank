@@ -1,0 +1,2 @@
+-- Active: 1761798254083@@127.0.0.1@5432@mini_bank
+DROP TABLE IF EXISTS limits;
