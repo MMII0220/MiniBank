@@ -7,14 +7,13 @@ import (
 	"time"
 
 	"github.com/MMII0220/MiniBank/internal/domain"
-	"github.com/MMII0220/MiniBank/internal/repository"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var jwtSecret = []byte(os.Getenv("JWT_SECRET_KEY")) // преобразуем сразу в []byte
 
-func Register(req domain.ReqRegister, role domain.Role) (domain.User, error) {
+func (s *Service) Register(req domain.ReqRegister, role domain.Role) (domain.User, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return domain.User{}, err
@@ -28,7 +27,7 @@ func Register(req domain.ReqRegister, role domain.Role) (domain.User, error) {
 		Role:     role,
 	}
 
-	err = repository.CreateUser(&user)
+	err = s.repo.CreateUser(&user)
 	if err != nil {
 		return domain.User{}, err
 	}
@@ -42,36 +41,23 @@ func Register(req domain.ReqRegister, role domain.Role) (domain.User, error) {
 			Blocked:  false,
 		}
 
-		err := repository.CreateAccount(&account)
+		err := s.repo.CreateAccount(&account)
 		if err != nil {
 			return user, err
 		}
 
 		// после создания account создаём карту
-		card, err := CreateCardForAccount(account.ID, user.FullName)
+		card, err := s.CreateCardForAccount(account.ID, user.FullName)
 		if err != nil {
 			return domain.User{}, err
 		}
 
 		fmt.Printf("Создана карта: %s для пользователя %s\n", card.CardNumber, user.FullName)
-		// сразу создать карту к этому счёту
-		// card := domain.Card{
-		// 	AccountID:      account.ID,
-		// 	CardNumber:     generateCardNumber(),
-		// 	CardHolderName: user.FullName,
-		// 	ExpiryDate:     time.Now().AddDate(4, 0, 0), // срок 4 года
-		// 	CVV:            generateCVV(),
-		// }
-
-		// err = repository.CreateCard(&card)
-		// if err != nil {
-		// 	return user, err
-		// }
 	}
 
 	// var reqLimit domain.Limit
 	// Создаем стандартный лимит для нового пользователя
-	err = repository.CreateDailyLimitForUser(user.ID, 1000.0) // 1000 TJS дневной лимит
+	err = s.repo.CreateDailyLimitForUser(user.ID, 1000.0) // 1000 TJS дневной лимит
 	if err != nil {
 		return user, err
 	}
@@ -79,8 +65,8 @@ func Register(req domain.ReqRegister, role domain.Role) (domain.User, error) {
 	return user, nil
 }
 
-func Login(req domain.ReqLogin) (string, error) {
-	user, err := repository.GetUserByEmail(req.Email)
+func (s *Service) Login(req domain.ReqLogin) (string, error) {
+	user, err := s.repo.GetUserByEmail(req.Email)
 	if err != nil {
 		return "", errors.New("invalid email or password")
 	}
@@ -106,7 +92,7 @@ func Login(req domain.ReqLogin) (string, error) {
 }
 
 // Проверка JWT и роль
-func ParseToken(tokenStr string) (domain.User, error) {
+func (s *Service) ParseToken(tokenStr string) (domain.User, error) {
 	var user domain.User
 
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {

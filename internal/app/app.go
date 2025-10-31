@@ -5,16 +5,26 @@ import (
 
 	"github.com/MMII0220/MiniBank/config"
 	"github.com/MMII0220/MiniBank/internal/controller"
+	"github.com/MMII0220/MiniBank/internal/repository"
+	"github.com/MMII0220/MiniBank/internal/service"
 )
+
+// dbConn, err := config.InitDB()
+// 	if err != nil {
 
 // AppRun starts the application in main.go
 func AppRun() {
-	if err := config.InitDB(); err != nil {
+	dbConn, err := config.InitDB()
+	if err != nil {
 		log.Fatal("failed to initialize database: ", err)
 	}
 	defer config.CloseDB()
 
-	controller.SetupRoutes()
+	rep := repository.NewRepository(dbConn)
+	svc := service.NewService(rep)
+	ctr := controller.NewController(svc)
+
+	ctr.SetupRoutes()
 
 	//init cron(interface service)
 }

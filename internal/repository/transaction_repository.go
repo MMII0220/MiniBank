@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/MMII0220/MiniBank/config"
 	"github.com/MMII0220/MiniBank/internal/domain"
 	"github.com/MMII0220/MiniBank/internal/repository/models"
 )
 
-func DepositToAccount(accountID int, amount float64) error {
-	tx, err := config.GetDBConfig().Beginx()
+func (r *Repository) DepositToAccount(accountID int, amount float64) error {
+	tx, err := r.db.Beginx()
 	if err != nil {
 		return err
 	}
@@ -48,16 +47,15 @@ func DepositToAccount(accountID int, amount float64) error {
 	return tx.Commit()
 }
 
-func WithdrawFromAccount(accountID int, req domain.ReqTransaction) error {
-	log.Println("49--------------------Withdrawal successful")
-	tx, err := config.GetDBConfig().Beginx()
+func (r *Repository) WithdrawFromAccount(accountID int, amount float64, currency string) error {
+	tx, err := r.db.Beginx()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
 	// Обновляем баланс (убираем проверку balance >= $1 из UPDATE)
-	result, err := tx.Exec(`UPDATE accounts SET balance = CAST(balance AS NUMERIC) - $1 WHERE id = $2 AND currency = $3`, req.Amount, accountID, req.Currency)
+	result, err := tx.Exec(`UPDATE accounts SET balance = CAST(balance AS NUMERIC) - $1 WHERE id = $2 AND currency = $3`, amount, accountID, currency)
 	if err != nil {
 		log.Printf("ERROR: Failed to update balance: %v", err)
 		return err
@@ -72,20 +70,17 @@ func WithdrawFromAccount(accountID int, req domain.ReqTransaction) error {
 		return errors.New("account not found or currency mismatch")
 	}
 
-	log.Println("61--------------------Withdrawal successful", req.Amount, accountID, req.Currency)
-
-	_, err = tx.Exec(`INSERT INTO transactions (account_id, amount, currency, type) VALUES ($1, $2, $3, 'withdraw')`, accountID, req.Amount, req.Currency)
+	_, err = tx.Exec(`INSERT INTO transactions (account_id, amount, currency, type) VALUES ($1, $2, $3, 'withdraw')`, accountID, amount, currency)
 	if err != nil {
 		log.Printf("ERROR: Failed to insert transaction: %v", err)
 		return err
 	}
-	log.Println("67--------------------Withdrawal successful", req.Amount, accountID, req.Currency)
 
 	return tx.Commit()
 }
 
-func TransferFunds(fromAccountID, toAccountID int, amount float64) error {
-	tx, err := config.GetDBConfig().Beginx()
+func (r *Repository) TransferFunds(fromAccountID, toAccountID int, amount float64) error {
+	tx, err := r.db.Beginx()
 	if err != nil {
 		return err
 	}
@@ -129,7 +124,7 @@ func TransferFunds(fromAccountID, toAccountID int, amount float64) error {
 	return nil
 }
 
-func GetAccountByCardNumber(account *domain.Account, cardNumber string, currency string) error {
+func (r *Repository) GetAccountByCardNumber(account *domain.Account, cardNumber string, currency string) error {
 	var accountModel models.AccountModel
 	query := `
 		SELECT a.id, a.user_id, a.currency, a.balance, a.blocked
@@ -138,7 +133,7 @@ func GetAccountByCardNumber(account *domain.Account, cardNumber string, currency
 		WHERE c.card_number = $1 AND a.currency = $2
 	`
 
-	err := config.GetDBConfig().Get(&accountModel, query, cardNumber, currency)
+	err := r.db.Get(&accountModel, query, cardNumber, currency)
 	if err != nil {
 		return err
 	}
@@ -147,9 +142,7 @@ func GetAccountByCardNumber(account *domain.Account, cardNumber string, currency
 	return nil
 }
 
-func GetAccountByPhoneNumber(account *domain.Account, phoneNumber string, currency string) error {
-	log.Printf("DEBUG: Поиск аккаунта по телефону: %s, валюта: %s", phoneNumber, currency)
-
+func (r *Repository) GetAccountByPhoneNumber(account *domain.Account, phoneNumber string, currency string) error {
 	var accountModel models.AccountModel
 	query := `
         SELECT a.id, a.user_id, a.currency, a.balance, a.blocked
@@ -158,19 +151,18 @@ func GetAccountByPhoneNumber(account *domain.Account, phoneNumber string, curren
         WHERE u.phone = $1 AND a.currency = $2
     `
 
-	err := config.GetDBConfig().Get(&accountModel, query, phoneNumber, currency)
+	err := r.db.Get(&accountModel, query, phoneNumber, currency)
 	if err != nil {
 		log.Printf("ERROR: Аккаунт не найден: %v", err)
 		return err
 	}
 
 	*account = accountModel.ToDomain()
-	log.Printf("DEBUG: Найден аккаунт ID: %d, UserID: %d, Balance: %s", account.ID, account.UserID, account.Balance)
 	return nil
 }
 
 // GetTransactionHistory возвращает список транзакций пользователя
-func GetTransactionHistory(idUser int) ([]domain.Transaction, error) {
+func (r *Repository) GetTransactionHistory(idUser int) ([]domain.Transaction, error) {
 	query := `
 		SELECT t.id, t.amount, t.currency, t.type, t.created_at
 		FROM transactions t
@@ -180,7 +172,7 @@ func GetTransactionHistory(idUser int) ([]domain.Transaction, error) {
 	`
 
 	var transactionModels []models.TransactionModel
-	err := config.GetDBConfig().Select(&transactionModels, query, idUser)
+	err := r.db.Select(&transactionModels, query, idUser)
 	if err != nil {
 		return nil, err
 	}

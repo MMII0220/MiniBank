@@ -6,31 +6,31 @@ import (
 	"os"
 )
 
-func SetupRoutes() {
+func (ctr *Controller) SetupRoutes() {
 	r := gin.Default()
 
-	r.GET("/ping", healthCheck)
+	r.GET("/ping", ctr.healthCheck)
 
 	auth := r.Group("/auth")
 	{
-		auth.POST("/register", registerHandler)
-		auth.POST("/login", loginHandler)
+		auth.POST("/register", ctr.registerHandler)
+		auth.POST("/login", ctr.loginHandler)
 	}
 
 	admin := r.Group("/admin")
-	admin.Use(AuthMiddleware(domain.RoleAdmin))
+	admin.Use(ctr.AuthMiddleware(domain.RoleAdmin))
 	{
-		admin.POST("/blockUnblock/:id", blockUnblockAccountHandler)
-		admin.GET("/getAuditLogs", getAuditLogsHandler)
+		admin.POST("/blockUnblock/:id", ctr.blockUnblockAccountHandler)
+		admin.GET("/getAuditLogs", ctr.getAuditLogsHandler)
 	}
 
 	api := r.Group("/api")
-	api.Use(AuthMiddleware(domain.RoleUser)) // или можно создать специальную роль "any"
+	api.Use(ctr.AuthMiddleware(domain.RoleUser)) // или можно создать специальную роль "any"
 	{
-		api.POST("/deposit", depositHandler)
-		api.POST("/withdraw", withdrawHandler)
-		api.POST("/transfer", transferHandler)
-		api.GET("/history", historyLogs)
+		api.POST("/deposit", ctr.depositHandler)
+		api.POST("/withdraw", ctr.withdrawHandler)
+		api.POST("/transfer", ctr.transferHandler)
+		api.GET("/history", ctr.historyLogs)
 	}
 
 	r.Run(":" + os.Getenv("ROUTER_RUN")) // listen and serve on

@@ -3,14 +3,13 @@ package repository
 import (
 	"errors"
 
-	"github.com/MMII0220/MiniBank/config"
 	"github.com/MMII0220/MiniBank/internal/domain"
 	"github.com/MMII0220/MiniBank/internal/repository/models"
 )
 
-func SetAccountBlock(accountID int, block bool, reqLogs domain.AdminAuditLog) error {
+func (r *Repository) SetAccountBlock(accountID int, block bool, reqLogs domain.AdminAuditLog) error {
 	// Начинаем транзакцию
-	tx, err := config.GetDBConfig().Beginx()
+	tx, err := r.db.Beginx()
 	if err != nil {
 		return err
 	}
@@ -39,10 +38,10 @@ func SetAccountBlock(accountID int, block bool, reqLogs domain.AdminAuditLog) er
 	return tx.Commit()
 }
 
-func GetAuditLogs() ([]domain.AdminAuditLog, error) {
+func (r *Repository) GetAuditLogs() ([]domain.AdminAuditLog, error) {
 	var logModels []models.AdminAuditLogModel
 	query := `SELECT id, account_id, admin_id, action, reason, created_at FROM account_audit ORDER BY created_at DESC`
-	err := config.GetDBConfig().Select(&logModels, query)
+	err := r.db.Select(&logModels, query)
 	if err != nil {
 		return nil, err
 	}

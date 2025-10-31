@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"strconv"
 
-	// "github.com/MMII0220/MiniBank/internal/controller"
 	"github.com/MMII0220/MiniBank/internal/domain"
-	"github.com/MMII0220/MiniBank/internal/repository"
 )
 
-func Deposit(currentUserID int, req domain.ReqTransaction) error {
+func (s *Service) Deposit(currentUserID int, req domain.ReqTransaction) error {
 	var account domain.Account
 	var err error
 
@@ -23,9 +21,9 @@ func Deposit(currentUserID int, req domain.ReqTransaction) error {
 	}
 
 	if req.CardNumber != "" {
-		err = repository.GetAccountByCardNumber(&account, req.CardNumber, req.Currency)
+		err = s.repo.GetAccountByCardNumber(&account, req.CardNumber, req.Currency)
 	} else if req.PhoneNumber != "" {
-		err = repository.GetAccountByPhoneNumber(&account, req.PhoneNumber, req.Currency)
+		err = s.repo.GetAccountByPhoneNumber(&account, req.PhoneNumber, req.Currency)
 	} else {
 		return errors.New("either card_number or phone_number must be provided")
 	}
@@ -43,10 +41,10 @@ func Deposit(currentUserID int, req domain.ReqTransaction) error {
 		return errors.New("access denied")
 	}
 
-	return repository.DepositToAccount(account.ID, req.Amount)
+	return s.repo.DepositToAccount(account.ID, req.Amount)
 }
 
-func Withdraw(currentUserID int, req domain.ReqTransaction) error {
+func (s *Service) Withdraw(currentUserID int, req domain.ReqTransaction) error {
 	var account domain.Account
 	var err error
 
@@ -59,9 +57,9 @@ func Withdraw(currentUserID int, req domain.ReqTransaction) error {
 	}
 
 	if req.CardNumber != "" {
-		err = repository.GetAccountByCardNumber(&account, req.CardNumber, req.Currency)
+		err = s.repo.GetAccountByCardNumber(&account, req.CardNumber, req.Currency)
 	} else if req.PhoneNumber != "" {
-		err = repository.GetAccountByPhoneNumber(&account, req.PhoneNumber, req.Currency)
+		err = s.repo.GetAccountByPhoneNumber(&account, req.PhoneNumber, req.Currency)
 	} else {
 		return errors.New("either card_number or phone_number must be provided")
 	}
@@ -86,22 +84,15 @@ func Withdraw(currentUserID int, req domain.ReqTransaction) error {
 		return errors.New("invalid balance format")
 	}
 
-	// ДОБАВЬТЕ ЭТО ДЛЯ ОТЛАДКИ:
-	fmt.Printf("DEBUG: account.Balance string = '%s'\n", account.Balance)
-	fmt.Printf("DEBUG: parsed balance = %f\n", balance)
-	fmt.Printf("DEBUG: req.Amount = %f\n", req.Amount)
-
 	if req.Amount > balance {
 		return errors.New("insufficient funds")
 	}
 
 	// Проверяем лимит и получаем комиссию (НЕ перезаписываем req.Amount!)
-	fee, err := CheckLimitAndCalculateFee(account.UserID, req.Amount, req.Currency)
+	fee, err := s.CheckLimitAndCalculateFee(account.UserID, req.Amount, req.Currency)
 	if err != nil {
 		return err
 	}
-
-	fmt.Printf("DEBUG: Calculated fee = %f\n", fee)
 
 	// Если есть комиссия - добавляем к основной сумме
 	totalAmount := req.Amount + fee
@@ -112,10 +103,10 @@ func Withdraw(currentUserID int, req domain.ReqTransaction) error {
 	// Обновляем req.Amount для списания основной суммы + комиссии
 	req.Amount = totalAmount
 
-	return repository.WithdrawFromAccount(account.ID, req)
+	return s.repo.WithdrawFromAccount(account.ID, req.Amount, req.Currency)
 }
 
-func Transfer(currentUserID int, req domain.ReqTransfer) error {
+func (s *Service) Transfer(currentUserID int, req domain.ReqTransfer) error {
 	var fromAccount, toAccount domain.Account
 	var err error
 
@@ -125,15 +116,15 @@ func Transfer(currentUserID int, req domain.ReqTransfer) error {
 	}
 
 	if req.FromCardNumber != "" {
-		err = repository.GetAccountByCardNumber(&fromAccount, req.FromCardNumber, req.Currency)
+		err = s.repo.GetAccountByCardNumber(&fromAccount, req.FromCardNumber, req.Currency)
 	} else if req.FromPhoneNumber != "" {
-		err = repository.GetAccountByPhoneNumber(&fromAccount, req.FromPhoneNumber, req.Currency)
+		err = s.repo.GetAccountByPhoneNumber(&fromAccount, req.FromPhoneNumber, req.Currency)
 	}
 
 	if req.ToCardNumber != "" {
-		err = repository.GetAccountByCardNumber(&toAccount, req.ToCardNumber, req.Currency)
+		err = s.repo.GetAccountByCardNumber(&toAccount, req.ToCardNumber, req.Currency)
 	} else if req.ToPhoneNumber != "" {
-		err = repository.GetAccountByPhoneNumber(&toAccount, req.ToPhoneNumber, req.Currency)
+		err = s.repo.GetAccountByPhoneNumber(&toAccount, req.ToPhoneNumber, req.Currency)
 	}
 
 	if err != nil {
@@ -157,7 +148,7 @@ func Transfer(currentUserID int, req domain.ReqTransfer) error {
 	}
 
 	// Проверяем лимит и получаем комиссию для переводов (НЕ перезаписываем req.Amount!)
-	fee, err := CheckLimitAndCalculateFee(fromAccount.UserID, req.Amount, req.Currency)
+	fee, err := s.CheckLimitAndCalculateFee(fromAccount.UserID, req.Amount, req.Currency)
 	if err != nil {
 		return err
 	}
@@ -176,10 +167,10 @@ func Transfer(currentUserID int, req domain.ReqTransfer) error {
 	fromAccount.UserID = currentUserID
 
 	// Атомарная операция через репозиторий
-	return repository.TransferFunds(fromAccount.ID, toAccount.ID, req.Amount)
+	return s.repo.TransferFunds(fromAccount.ID, toAccount.ID, req.Amount)
 }
 
 // HistoryLogs возвращает историю операций пользователя
-func HistoryLogs(idUser int) ([]domain.Transaction, error) {
-	return repository.GetTransactionHistory(idUser)
+func (s *Service) HistoryLogs(idUser int) ([]domain.Transaction, error) {
+	return s.repo.GetTransactionHistory(idUser)
 }

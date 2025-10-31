@@ -1,22 +1,21 @@
 package repository
 
 import (
-	"github.com/MMII0220/MiniBank/config"
 	"github.com/MMII0220/MiniBank/internal/domain"
 	"github.com/MMII0220/MiniBank/internal/repository/models"
 )
 
-func GetDailyLimitByUserID(userID int) (domain.Limit, error) {
+func (r *Repository) GetDailyLimitByUserID(userID int) (domain.Limit, error) {
 	var limitModel models.LimitModel
 	query := `SELECT id, user_id, daily_amount, last_reset FROM limits WHERE user_id = $1`
-	err := config.GetDBConfig().Get(&limitModel, query, userID)
+	err := r.db.Get(&limitModel, query, userID)
 	if err != nil {
 		return domain.Limit{}, err
 	}
 	return limitModel.ToDomain(), nil
 }
 
-func GetTodayUsageInTJS(userID int) (float64, error) {
+func (r *Repository) GetTodayUsageInTJS(userID int) (float64, error) {
 	// Курсы валют для конвертации в TJS (должны совпадать с service)
 	currencyRates := map[string]float64{
 		"TJS": 1.0,
@@ -34,7 +33,7 @@ func GetTodayUsageInTJS(userID int) (float64, error) {
 	`
 
 	var transactions []models.TransactionData
-	err := config.GetDBConfig().Select(&transactions, query, userID)
+	err := r.db.Select(&transactions, query, userID)
 	if err != nil {
 		return 0, err
 	}
@@ -56,15 +55,15 @@ func GetTodayUsageInTJS(userID int) (float64, error) {
 }
 
 // CreateDailyLimitForUser создает стандартный лимит для нового пользователя
-func CreateDailyLimitForUser(userID int, dailyAmount float64) error {
+func (r *Repository) CreateDailyLimitForUser(userID int, dailyAmount float64) error {
 	query := `INSERT INTO limits (user_id, daily_amount, last_reset) VALUES ($1, $2, NOW())`
-	_, err := config.GetDBConfig().Exec(query, userID, dailyAmount)
+	_, err := r.db.Exec(query, userID, dailyAmount)
 	return err
 }
 
 // ResetDailyLimit сбрасывает дневной лимит (обновляет last_reset на сегодня)
-func ResetDailyLimit(userID int) error {
+func (r *Repository) ResetDailyLimit(userID int) error {
 	query := `UPDATE limits SET last_reset = NOW() WHERE user_id = $1`
-	_, err := config.GetDBConfig().Exec(query, userID)
+	_, err := r.db.Exec(query, userID)
 	return err
 }

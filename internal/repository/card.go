@@ -4,14 +4,13 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/MMII0220/MiniBank/config"
 	"github.com/MMII0220/MiniBank/internal/domain"
 	"github.com/MMII0220/MiniBank/internal/repository/models"
 )
 
 // Предполагается, что в БД есть unique index на cards.card_number
 // CREATE UNIQUE INDEX IF NOT EXISTS idx_cards_number ON cards(card_number);
-func CreateCard(card *domain.Card) error {
+func (r *Repository) CreateCard(card *domain.Card) error {
 	cardModel := models.CardFromDomain(*card)
 	query := `
 		INSERT INTO cards (account_id, card_number, card_holder_name, expiry_date, cvv, created_at)
@@ -19,8 +18,7 @@ func CreateCard(card *domain.Card) error {
 		RETURNING id
 	`
 
-	db := config.GetDBConfig()
-	err := db.QueryRow(query,
+	err := r.db.QueryRow(query,
 		cardModel.AccountID,
 		cardModel.CardNumber,
 		cardModel.CardHolderName,

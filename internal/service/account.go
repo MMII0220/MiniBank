@@ -3,17 +3,16 @@ package service
 import (
 	"errors"
 	"time"
-	
+
 	"github.com/MMII0220/MiniBank/internal/domain"
-	"github.com/MMII0220/MiniBank/internal/repository"
 )
 
-func BlockUnblockAccount(accountID int, block bool, adminID int, reason string) error {
+func (s *Service) BlockUnblockAccount(accountID int, block bool, adminID int, reason string) error {
 	// Валидация бизнес-правил
 	if reason == "" {
 		return errors.New("reason is required for account blocking/unblocking")
 	}
-	
+
 	// Создание audit log (это бизнес-логика сервиса)
 	auditLog := domain.AdminAuditLog{
 		AccountID: accountID,
@@ -23,9 +22,9 @@ func BlockUnblockAccount(accountID int, block bool, adminID int, reason string) 
 		CreatedAt: time.Now(),
 	}
 
-	return repository.SetAccountBlock(accountID, block, auditLog)
+	return s.repo.SetAccountBlock(accountID, block, auditLog)
 }
 
-func AuditLogs() ([]domain.AdminAuditLog, error) {
-	return repository.GetAuditLogs()
+func (s *Service) AuditLogs() ([]domain.AdminAuditLog, error) {
+	return s.repo.GetAuditLogs()
 }

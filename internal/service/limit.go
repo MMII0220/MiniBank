@@ -3,9 +3,6 @@ package service
 import (
 	"errors"
 	"time"
-
-	// "github.com/MMII0220/MiniBank/internal/domain"
-	"github.com/MMII0220/MiniBank/internal/repository"
 )
 
 // Курсы валют к TJS (базовая валюта)
@@ -16,7 +13,7 @@ var currencyRates = map[string]float64{
 }
 
 // Конвертируем любую валюту в TJS для сравнения с лимитом
-func convertToBaseCurrency(amount float64, currency string) (float64, error) {
+func (s *Service) ConvertToBaseCurrency(amount float64, currency string) (float64, error) {
 	rate, exists := currencyRates[currency]
 	if !exists {
 		return 0, errors.New("unsupported currency")
@@ -27,15 +24,15 @@ func convertToBaseCurrency(amount float64, currency string) (float64, error) {
 }
 
 // Проверяем лимит и рассчитываем комиссию
-func CheckLimitAndCalculateFee(userID int, amount float64, currency string) (float64, error) {
+func (s *Service) CheckLimitAndCalculateFee(userID int, amount float64, currency string) (float64, error) {
 	// Конвертируем сумму операции в TJS
-	amountInTJS, err := convertToBaseCurrency(amount, currency)
+	amountInTJS, err := s.ConvertToBaseCurrency(amount, currency)
 	if err != nil {
 		return 0, err
 	}
 
 	// Получаем лимит пользователя (в TJS)
-	limit, err := repository.GetDailyLimitByUserID(userID)
+	limit, err := s.repo.GetDailyLimitByUserID(userID)
 	if err != nil {
 		// Если лимита нет - создаем стандартный лимит 1000 TJS
 		if err.Error() == "sql: no rows in result set" {
@@ -47,8 +44,8 @@ func CheckLimitAndCalculateFee(userID int, amount float64, currency string) (flo
 
 	// Проверяем нужно ли сбросить лимит (если прошел день)
 	var usedTodayInTJS float64
-	if isNewDay(limit.LastReset) {
-		err = repository.ResetDailyLimit(userID)
+	if s.IsNewDay(limit.LastReset) {
+		err = s.repo.ResetDailyLimit(userID)
 		if err != nil {
 			return 0, err
 		}
@@ -56,7 +53,7 @@ func CheckLimitAndCalculateFee(userID int, amount float64, currency string) (flo
 		usedTodayInTJS = 0
 	} else {
 		// Получаем уже потраченную сумму сегодня (в TJS)
-		usedTodayInTJS, err = repository.GetTodayUsageInTJS(userID)
+		usedTodayInTJS, err = s.repo.GetTodayUsageInTJS(userID)
 		if err != nil {
 			return 0, err
 		}
@@ -76,7 +73,7 @@ func CheckLimitAndCalculateFee(userID int, amount float64, currency string) (flo
 		overlimitAmountInCurrency := overlimitAmountInTJS / rate
 
 		// Рассчитываем комиссию только с превышающей части
-		fee := calculateOverlimitFee(overlimitAmountInCurrency /*, currency*/)
+		fee := s.CalculateOverlimitFee(overlimitAmountInCurrency /*, currency*/)
 		return fee, nil
 	}
 
@@ -85,7 +82,7 @@ func CheckLimitAndCalculateFee(userID int, amount float64, currency string) (flo
 }
 
 // Рассчитываем размер комиссии за превышение лимита
-func calculateOverlimitFee(amount float64 /*, currency string*/) float64 {
+func (s *Service) CalculateOverlimitFee(amount float64 /*, currency string*/) float64 {
 	// Комиссия 2% за превышение лимита
 	feePercent := 0.02
 
@@ -101,13 +98,8 @@ func calculateOverlimitFee(amount float64 /*, currency string*/) float64 {
 	return amount * feePercent
 }
 
-// isNewDay проверяет, прошел ли день с последнего сброса лимита
-func isNewDay(lastReset time.Time) bool {
+// IsNewDay проверяет, прошел ли день с последнего сброса лимита
+func (s *Service) IsNewDay(lastReset time.Time) bool {
 	now := time.Now()
 	return now.Day() != lastReset.Day() || now.Month() != lastReset.Month() || now.Year() != lastReset.Year()
 }
-
-// // Устаревшая функция - оставляем для совместимости
-// func CheckDailyLimit(userID int) (domain.Limit, error) {
-// 	return repository.GetDailyLimitByUserID(userID)
-// }

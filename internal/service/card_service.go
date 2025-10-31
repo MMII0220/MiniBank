@@ -4,13 +4,12 @@ package service
 import (
 	"errors"
 	"github.com/MMII0220/MiniBank/internal/domain"
-	"github.com/MMII0220/MiniBank/internal/repository"
 	"github.com/MMII0220/MiniBank/internal/utils"
 	"time"
 )
 
 // CreateCardForAccount - простое создание карты
-func CreateCardForAccount(accountID int, holderName string) (*domain.Card, error) {
+func (s *Service) CreateCardForAccount(accountID int, holderName string) (*domain.Card, error) {
 	// Генерируем данные
 	cardNumber, _ := utils.GenerateCardNumber()
 	cvv, _ := utils.GenerateCVV()
@@ -27,7 +26,7 @@ func CreateCardForAccount(accountID int, holderName string) (*domain.Card, error
 	}
 
 	// Сохраняем в БД
-	err := repository.CreateCard(card)
+	err := s.repo.CreateCard(card)
 	if err != nil {
 		return nil, errors.New("не удалось создать карту")
 	}

@@ -12,11 +12,11 @@ import (
 var db *sqlx.DB
 
 // Connection to Database
-func InitDB() error {
+func InitDB() (*sqlx.DB, error) {
 	var err error
 	err = godotenv.Load(".env")
 	if err != nil {
-		return fmt.Errorf("no env file found: %v", err)
+		return nil, fmt.Errorf("no env file found: %v", err)
 	}
 
 	dbc := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_NAME"))
@@ -26,16 +26,11 @@ func InitDB() error {
 		log.Fatal("Error connecting to database", err)
 	}
 
-	return nil
+	return db, nil
 }
 
 func CloseDB() {
 	if db != nil {
 		db.Close()
 	}
-}
-
-// To get DB instance
-func GetDBConfig() *sqlx.DB {
-	return db
 }
