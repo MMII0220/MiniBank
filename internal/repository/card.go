@@ -31,7 +31,7 @@ func (r *Repository) CreateCard(card *domain.Card) error {
 		if err == sql.ErrNoRows {
 			return errors.New("failed to create card")
 		}
-		return err
+		return r.translateError(err)
 	}
 
 	// Обновляем ID в доменном объекте

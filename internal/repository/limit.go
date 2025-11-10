@@ -10,7 +10,7 @@ func (r *Repository) GetDailyLimitByUserID(userID int) (domain.Limit, error) {
 	query := `SELECT id, user_id, daily_amount, last_reset FROM limits WHERE user_id = $1`
 	err := r.db.Get(&limitModel, query, userID)
 	if err != nil {
-		return domain.Limit{}, err
+		return domain.Limit{}, r.translateError(err)
 	}
 	return limitModel.ToDomain(), nil
 }
@@ -35,7 +35,7 @@ func (r *Repository) GetTodayUsageInTJS(userID int) (float64, error) {
 	var transactions []models.TransactionData
 	err := r.db.Select(&transactions, query, userID)
 	if err != nil {
-		return 0, err
+		return 0, r.translateError(err)
 	}
 
 	// Суммируем все операции, конвертируя в TJS
@@ -58,12 +58,18 @@ func (r *Repository) GetTodayUsageInTJS(userID int) (float64, error) {
 func (r *Repository) CreateDailyLimitForUser(userID int, dailyAmount float64) error {
 	query := `INSERT INTO limits (user_id, daily_amount, last_reset) VALUES ($1, $2, NOW())`
 	_, err := r.db.Exec(query, userID, dailyAmount)
-	return err
+	if err != nil {
+		return r.translateError(err)
+	}
+	return nil
 }
 
 // ResetDailyLimit сбрасывает дневной лимит (обновляет last_reset на сегодня)
 func (r *Repository) ResetDailyLimit(userID int) error {
 	query := `UPDATE limits SET last_reset = NOW() WHERE user_id = $1`
 	_, err := r.db.Exec(query, userID)
-	return err
+	if err != nil {
+		return r.translateError(err)
+	}
+	return nil
 }

@@ -33,7 +33,7 @@ func (ctr *Controller) blockUnblockAccountHandler(c *gin.Context) {
 
 	// Controller передает только HTTP параметры в Service
 	if err := ctr.service.BlockUnblockAccount(accountID, block, currentUser.ID, req.Reason); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctr.translateError(c, err)
 		return
 	}
 
@@ -43,7 +43,7 @@ func (ctr *Controller) blockUnblockAccountHandler(c *gin.Context) {
 func (ctr *Controller) getAuditLogsHandler(c *gin.Context) {
 	logs, err := ctr.service.AuditLogs()
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		ctr.translateError(c, err)
 		return
 	}
 	c.JSON(200, logs)

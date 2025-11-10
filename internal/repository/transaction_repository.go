@@ -1,56 +1,76 @@
 package repository
 
 import (
-	"errors"
-	"fmt"
 	"log"
 
 	"github.com/MMII0220/MiniBank/internal/domain"
+	"github.com/MMII0220/MiniBank/internal/errs"
+	"github.com/MMII0220/MiniBank/internal/logger"
+	"github.com/MMII0220/MiniBank/internal/redis"
 	"github.com/MMII0220/MiniBank/internal/repository/models"
 )
 
 func (r *Repository) DepositToAccount(accountID int, amount float64) error {
+	log := logger.GetLogger()
+	log.Info().
+		Int("account_id", accountID).
+		Float64("amount", amount).
+		Msg("Starting deposit transaction")
+
 	tx, err := r.db.Beginx()
 	if err != nil {
-		return err
+		log.Error().Err(err).Int("account_id", accountID).Msg("Failed to begin deposit transaction")
+		return r.translateError(err)
 	}
 	defer tx.Rollback()
 
 	// Обновляем баланс счета
 	result, err := tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2`, amount, accountID)
 	if err != nil {
-		return err
+		return r.translateError(err)
 	}
 
 	// Проверяем, что строка действительно обновилась
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return err
+		return r.translateError(err)
 	}
 	if rowsAffected == 0 {
-		return errors.New("account not found or could not update balance")
+		return errs.ErrAccountNotFound
 	}
 
 	// Получаем валюту счета для транзакции
 	var currency string
 	err = tx.Get(&currency, `SELECT currency FROM accounts WHERE id = $1`, accountID)
 	if err != nil {
-		return err
+		return r.translateError(err)
 	}
 
 	// Создаем запись транзакции
 	_, err = tx.Exec(`INSERT INTO transactions (account_id, amount, currency, type) VALUES ($1, $2, $3, 'deposit')`, accountID, amount, currency)
 	if err != nil {
-		return err
+		return r.translateError(err)
 	}
 
-	return tx.Commit()
+	// Коммитим транзакцию
+	err = tx.Commit()
+	if err != nil {
+		return r.translateError(err)
+	}
+
+	// Удаляем кеш после успешного депозита
+	if cacheErr := redis.DeleteAccountCacheByAccountID(accountID); cacheErr != nil {
+		log.Warn().Err(cacheErr).Int("account_id", accountID).Msg("Failed to delete account cache after deposit")
+	}
+
+	log.Info().Int("account_id", accountID).Float64("amount", amount).Msg("Deposit completed successfully")
+	return nil
 }
 
 func (r *Repository) WithdrawFromAccount(accountID int, amount float64, currency string) error {
 	tx, err := r.db.Beginx()
 	if err != nil {
-		return err
+		return r.translateError(err)
 	}
 	defer tx.Rollback()
 
@@ -58,31 +78,42 @@ func (r *Repository) WithdrawFromAccount(accountID int, amount float64, currency
 	result, err := tx.Exec(`UPDATE accounts SET balance = CAST(balance AS NUMERIC) - $1 WHERE id = $2 AND currency = $3`, amount, accountID, currency)
 	if err != nil {
 		log.Printf("ERROR: Failed to update balance: %v", err)
-		return err
+		return r.translateError(err)
 	}
 
 	// Проверяем что строка обновилась
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return err
+		return r.translateError(err)
 	}
 	if rowsAffected == 0 {
-		return errors.New("account not found or currency mismatch")
+		return errs.ErrAccountNotFound
 	}
 
 	_, err = tx.Exec(`INSERT INTO transactions (account_id, amount, currency, type) VALUES ($1, $2, $3, 'withdraw')`, accountID, amount, currency)
 	if err != nil {
 		log.Printf("ERROR: Failed to insert transaction: %v", err)
-		return err
+		return r.translateError(err)
 	}
 
-	return tx.Commit()
+	// Коммитим транзакцию
+	err = tx.Commit()
+	if err != nil {
+		return r.translateError(err)
+	}
+
+	// Удаляем кеш после успешного снятия
+	if cacheErr := redis.DeleteAccountCacheByAccountID(accountID); cacheErr != nil {
+		log.Printf("WARNING: Failed to delete account cache after withdrawal: %v", cacheErr)
+	}
+
+	return nil
 }
 
 func (r *Repository) TransferFunds(fromAccountID, toAccountID int, amount float64) error {
 	tx, err := r.db.Beginx()
 	if err != nil {
-		return err
+		return r.translateError(err)
 	}
 
 	// Гарантированный откат, если дальше что-то сломается
@@ -95,30 +126,38 @@ func (r *Repository) TransferFunds(fromAccountID, toAccountID int, amount float6
 	// Списываем деньги, но только если хватает баланса
 	res, err := tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND balance >= $1`, amount, fromAccountID)
 	if err != nil {
-		return err
+		return r.translateError(err)
 	}
 
 	rowsAffected, _ := res.RowsAffected()
 	if rowsAffected == 0 {
-		return fmt.Errorf("недостаточно средств на счёте")
+		return errs.ErrInsufficientFunds
 	}
 
 	// Зачисляем получателю
 	_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE id = $2`, amount, toAccountID)
 	if err != nil {
-		return err
+		return r.translateError(err)
 	}
 
 	// Логируем операцию
 	_, err = tx.Exec(`INSERT INTO transactions (account_id, amount, type) VALUES ($1, $2, 'transfer')`, fromAccountID, amount)
 	if err != nil {
-		return err
+		return r.translateError(err)
 	}
 
 	// Завершаем успешно
 	err = tx.Commit()
 	if err != nil {
-		return err
+		return r.translateError(err)
+	}
+
+	// Удаляем кеш для обоих аккаунтов после успешного перевода
+	if cacheErr := redis.DeleteAccountCacheByAccountID(fromAccountID); cacheErr != nil {
+		log.Printf("WARNING: Failed to delete cache for sender account: %v", cacheErr)
+	}
+	if cacheErr := redis.DeleteAccountCacheByAccountID(toAccountID); cacheErr != nil {
+		log.Printf("WARNING: Failed to delete cache for recipient account: %v", cacheErr)
 	}
 
 	return nil
@@ -135,7 +174,7 @@ func (r *Repository) GetAccountByCardNumber(account *domain.Account, cardNumber 
 
 	err := r.db.Get(&accountModel, query, cardNumber, currency)
 	if err != nil {
-		return err
+		return r.translateError(err)
 	}
 
 	*account = accountModel.ToDomain()
@@ -154,7 +193,7 @@ func (r *Repository) GetAccountByPhoneNumber(account *domain.Account, phoneNumbe
 	err := r.db.Get(&accountModel, query, phoneNumber, currency)
 	if err != nil {
 		log.Printf("ERROR: Аккаунт не найден: %v", err)
-		return err
+		return r.translateError(err)
 	}
 
 	*account = accountModel.ToDomain()
@@ -174,7 +213,7 @@ func (r *Repository) GetTransactionHistory(idUser int) ([]domain.Transaction, er
 	var transactionModels []models.TransactionModel
 	err := r.db.Select(&transactionModels, query, idUser)
 	if err != nil {
-		return nil, err
+		return nil, r.translateError(err)
 	}
 
 	// Конвертируем в доменные объекты

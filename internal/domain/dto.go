@@ -33,6 +33,19 @@ type ReqLogin struct {
 	Password string
 }
 
+// JWT response with access and refresh tokens
+type TokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int64  `json:"expires_in"` // seconds until access token expires
+	TokenType    string `json:"token_type"` // "Bearer"
+}
+
+// Refresh token request
+type ReqRefreshToken struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
 // For admin account block/unblock requests
 type ReqAdminAccountAction struct {
 	Block  bool

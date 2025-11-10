@@ -28,7 +28,7 @@ func (s *Service) CheckLimitAndCalculateFee(userID int, amount float64, currency
 	// Конвертируем сумму операции в TJS
 	amountInTJS, err := s.ConvertToBaseCurrency(amount, currency)
 	if err != nil {
-		return 0, err
+		return 0, s.translateError(err)
 	}
 
 	// Получаем лимит пользователя (в TJS)
@@ -39,7 +39,7 @@ func (s *Service) CheckLimitAndCalculateFee(userID int, amount float64, currency
 			// Возвращаем 0 комиссии если лимитов нет
 			return 0, nil
 		}
-		return 0, err
+		return 0, s.translateError(err)
 	}
 
 	// Проверяем нужно ли сбросить лимит (если прошел день)
@@ -47,7 +47,7 @@ func (s *Service) CheckLimitAndCalculateFee(userID int, amount float64, currency
 	if s.IsNewDay(limit.LastReset) {
 		err = s.repo.ResetDailyLimit(userID)
 		if err != nil {
-			return 0, err
+			return 0, s.translateError(err)
 		}
 		// После сброса лимита - потрачено 0, комиссии не будет
 		usedTodayInTJS = 0
@@ -55,7 +55,7 @@ func (s *Service) CheckLimitAndCalculateFee(userID int, amount float64, currency
 		// Получаем уже потраченную сумму сегодня (в TJS)
 		usedTodayInTJS, err = s.repo.GetTodayUsageInTJS(userID)
 		if err != nil {
-			return 0, err
+			return 0, s.translateError(err)
 		}
 	}
 

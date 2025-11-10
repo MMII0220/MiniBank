@@ -5,12 +5,10 @@ import (
 
 	"github.com/MMII0220/MiniBank/config"
 	"github.com/MMII0220/MiniBank/internal/controller"
+	"github.com/MMII0220/MiniBank/internal/redis"
 	"github.com/MMII0220/MiniBank/internal/repository"
 	"github.com/MMII0220/MiniBank/internal/service"
 )
-
-// dbConn, err := config.InitDB()
-// 	if err != nil {
 
 // AppRun starts the application in main.go
 func AppRun() {
@@ -20,11 +18,18 @@ func AppRun() {
 	}
 	defer config.CloseDB()
 
+	if err := redis.InitRedisConnection(); err != nil {
+		log.Printf("WARNING: Cannot connect to Redis: %v", err)
+		log.Printf("Application will continue without Redis caching")
+	} else {
+		log.Println("Redis connected successfully")
+	}
+
+	// redisClient := redis.GetRedisClient()
+
 	rep := repository.NewRepository(dbConn)
 	svc := service.NewService(rep)
 	ctr := controller.NewController(svc)
 
 	ctr.SetupRoutes()
-
-	//init cron(interface service)
 }

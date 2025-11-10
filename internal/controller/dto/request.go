@@ -70,6 +70,16 @@ func (r *ReqLoginHTTP) ToDomain() domain.ReqLogin {
 	}
 }
 
+type ReqRefreshTokenHTTP struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+func (r *ReqRefreshTokenHTTP) ToDomain() domain.ReqRefreshToken {
+	return domain.ReqRefreshToken{
+		RefreshToken: r.RefreshToken,
+	}
+}
+
 type ReqAdminAccountActionHTTP struct {
 	Block  bool   `json:"block"`
 	Reason string `json:"reason" binding:"required"`

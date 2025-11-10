@@ -1,8 +1,9 @@
 package contracts
 
 import (
-	"github.com/MMII0220/MiniBank/internal/domain"
 	"time"
+
+	"github.com/MMII0220/MiniBank/internal/domain"
 )
 
 type ServiceI interface {
@@ -10,7 +11,8 @@ type ServiceI interface {
 	AuditLogs() ([]domain.AdminAuditLog, error)
 
 	Register(req domain.ReqRegister, role domain.Role) (domain.User, error)
-	Login(req domain.ReqLogin) (string, error)
+	Login(req domain.ReqLogin) (domain.TokenResponse, error)
+	RefreshToken(req domain.ReqRefreshToken) (domain.TokenResponse, error)
 	ParseToken(tokenStr string) (domain.User, error)
 
 	CreateCardForAccount(accountID int, holderName string) (*domain.Card, error)
@@ -24,4 +26,5 @@ type ServiceI interface {
 	Withdraw(currentUserID int, req domain.ReqTransaction) error
 	Transfer(currentUserID int, req domain.ReqTransfer) error
 	HistoryLogs(idUser int) ([]domain.Transaction, error)
+	GetAllAccounts(userID int) ([]domain.Account, error)
 }

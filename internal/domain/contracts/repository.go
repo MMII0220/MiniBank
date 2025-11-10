@@ -25,4 +25,5 @@ type RepositoryI interface {
 	CreateUser(user *domain.User) error
 	GetUserByEmail(email string) (*domain.User, error)
 	CreateAccount(account *domain.Account) error
+	GetAllAccountsByUserID(userID int) ([]domain.Account, error)
 }

@@ -29,7 +29,7 @@ func (s *Service) Deposit(currentUserID int, req domain.ReqTransaction) error {
 	}
 
 	if err != nil {
-		return err
+		return s.translateError(err)
 	}
 
 	if account.Blocked {
@@ -41,7 +41,7 @@ func (s *Service) Deposit(currentUserID int, req domain.ReqTransaction) error {
 		return errors.New("access denied")
 	}
 
-	return s.repo.DepositToAccount(account.ID, req.Amount)
+	return s.translateError(s.repo.DepositToAccount(account.ID, req.Amount))
 }
 
 func (s *Service) Withdraw(currentUserID int, req domain.ReqTransaction) error {
@@ -68,7 +68,7 @@ func (s *Service) Withdraw(currentUserID int, req domain.ReqTransaction) error {
 		if err.Error() == "sql: no rows in result set" {
 			return errors.New("account not found for the provided phone number and currency")
 		}
-		return err
+		return s.translateError(err)
 	}
 
 	if account.Blocked {
@@ -91,7 +91,7 @@ func (s *Service) Withdraw(currentUserID int, req domain.ReqTransaction) error {
 	// Проверяем лимит и получаем комиссию (НЕ перезаписываем req.Amount!)
 	fee, err := s.CheckLimitAndCalculateFee(account.UserID, req.Amount, req.Currency)
 	if err != nil {
-		return err
+		return s.translateError(err)
 	}
 
 	// Если есть комиссия - добавляем к основной сумме
@@ -103,7 +103,7 @@ func (s *Service) Withdraw(currentUserID int, req domain.ReqTransaction) error {
 	// Обновляем req.Amount для списания основной суммы + комиссии
 	req.Amount = totalAmount
 
-	return s.repo.WithdrawFromAccount(account.ID, req.Amount, req.Currency)
+	return s.translateError(s.repo.WithdrawFromAccount(account.ID, req.Amount, req.Currency))
 }
 
 func (s *Service) Transfer(currentUserID int, req domain.ReqTransfer) error {
@@ -128,7 +128,7 @@ func (s *Service) Transfer(currentUserID int, req domain.ReqTransfer) error {
 	}
 
 	if err != nil {
-		return err
+		return s.translateError(err)
 	}
 
 	if fromAccount.Blocked || toAccount.Blocked {
@@ -150,7 +150,7 @@ func (s *Service) Transfer(currentUserID int, req domain.ReqTransfer) error {
 	// Проверяем лимит и получаем комиссию для переводов (НЕ перезаписываем req.Amount!)
 	fee, err := s.CheckLimitAndCalculateFee(fromAccount.UserID, req.Amount, req.Currency)
 	if err != nil {
-		return err
+		return s.translateError(err)
 	}
 
 	fmt.Printf("DEBUG: Transfer fee = %f\n", fee)
@@ -167,10 +167,14 @@ func (s *Service) Transfer(currentUserID int, req domain.ReqTransfer) error {
 	fromAccount.UserID = currentUserID
 
 	// Атомарная операция через репозиторий
-	return s.repo.TransferFunds(fromAccount.ID, toAccount.ID, req.Amount)
+	return s.translateError(s.repo.TransferFunds(fromAccount.ID, toAccount.ID, req.Amount))
 }
 
 // HistoryLogs возвращает историю операций пользователя
 func (s *Service) HistoryLogs(idUser int) ([]domain.Transaction, error) {
-	return s.repo.GetTransactionHistory(idUser)
+	transactions, err := s.repo.GetTransactionHistory(idUser)
+	if err != nil {
+		return nil, s.translateError(err)
+	}
+	return transactions, nil
 }
